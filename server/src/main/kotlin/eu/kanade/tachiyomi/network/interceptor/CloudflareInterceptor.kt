@@ -133,7 +133,14 @@ object CFClearance {
         val name: String,
         val value: String,
     )
-
+    
+    @Serializable
+    data class FlareSolverProxy(
+        val url: String,
+        val username: String,
+        val password: String,
+    )
+    
     @Serializable
     data class FlareSolverRequest(
         val cmd: String,
@@ -144,7 +151,7 @@ object CFClearance {
         val sessionTtlMinutes: Int? = null,
         val cookies: List<FlareSolverCookie>? = null,
         val returnOnlyCookies: Boolean? = null,
-        val proxy: String? = null,
+        val proxy: FlareSolverProxy? = null,
         val postData: String? = null, // only used with cmd 'request.post'
     )
 
@@ -182,6 +189,23 @@ object CFClearance {
         val version: String,
     )
 
+    fun createFlaresolverProxy(): FlareSolverProxy? {
+        if (!serverConfig.socksProxyEnabled.value){
+            return null;
+        }
+
+        return FlareSolverProxy(
+            url = String.format(
+                "socks%1s://%2s:%3s",
+                serverConfig.socksProxyVersion.value,
+                serverConfig.socksProxyHost.value,
+                serverConfig.socksProxyPort.value
+            ),
+            username = serverConfig.socksProxyUsername.value,
+            password = serverConfig.socksProxyPassword.value
+        )
+    }
+
     suspend fun resolveWithFlareSolver(
         originalRequest: Request,
         onlyCookies: Boolean,
@@ -202,6 +226,7 @@ object CFClearance {
                                             originalRequest.url.toString(),
                                             session = serverConfig.flareSolverrSessionName.value,
                                             sessionTtlMinutes = serverConfig.flareSolverrSessionTtl.value,
+                                            proxy = createFlaresolverProxy(),
                                             cookies =
                                                 network.cookieStore.get(originalRequest.url).map {
                                                     FlareSolverCookie(it.name, it.value)
